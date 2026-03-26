@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Vincular Acesso - Tribos Academia</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0a0a0a;
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .header {
+      background: linear-gradient(135deg, #1a1a1a, #111);
+      width: 100%;
+      padding: 18px 20px;
+      text-align: center;
+      border-bottom: 3px solid #C8E600;
+    }
+    .header h1 { font-size: 20px; font-weight: 800; letter-spacing: 2px; color: #C8E600; }
+    .header p { font-size: 12px; color: #888; margin-top: 3px; }
+    .steps-bar {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      padding: 16px 0 8px;
+    }
+    .steps-bar .dot {
+      width: 32px; height: 5px;
+      border-radius: 3px;
+      background: #333;
+      transition: background 0.3s;
+    }
+    .steps-bar .dot.active { background: #C8E600; }
+    .steps-bar .dot.done { background: #6a7a00; }
+    .container {
+      width: 100%;
+      max-width: 440px;
+      padding: 16px 20px 40px;
+      flex: 1;
+    }
+    .step { display: none; animation: fadeIn 0.3s ease; }
+    .step.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    h2 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+    .subtitle { color: #999; font-size: 14px; margin-bottom: 24px; }
+    .form-group { margin-bottom: 16px; }
+    label { display: block; font-size: 13px; color: #aaa; margin-bottom: 6px; font-weight: 500; }
+    input, select {
+      width: 100%;
+      padding: 14px 16px;
+      font-size: 16px;
+      background: #1a1a1a;
+      border: 2px solid #333;
+      border-radius: 12px;
+      color: #fff;
+      outline: none;
+      transition: border 0.2s;
+    }
+    input:focus, select:focus { border-color: #C8E600; }
+    input::placeholder { color: #555; }
+    select { appearance: none; cursor: pointer; }
+    .row { display: flex; gap: 12px; }
+    .row .form-group { flex: 1; }
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 16px;
+      font-size: 16px;
+      font-weight: 700;
+      border: none;
+      border-radius: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-top: 8px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-primary { background: #C8E600; color: #000; }
+    .btn-primary:hover:not(:disabled) { background: #d4f000; transform: translateY(-1px); }
+    .btn-secondary { background: transparent; color: #C8E600; border: 2px solid #C8E600; }
+    .btn-secondary:hover:not(:disabled) { background: rgba(200,230,0,0.1); }
+    .btn-skip { background: transparent; color: #666; border: 1px solid #333; margin-top: 12px; font-size: 14px; padding: 12px; }
+    .tipo-cards { display: flex; gap: 16px; margin: 20px 0; }
+    .tipo-card {
+      flex: 1;
+      padding: 28px 16px;
+      background: #1a1a1a;
+      border: 2px solid #333;
+      border-radius: 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .tipo-card:hover { border-color: #C8E600; transform: translateY(-2px); }
+    .tipo-card.selected { border-color: #C8E600; background: rgba(200,230,0,0.08); }
+    .tipo-card .icon { font-size: 36px; margin-bottom: 10px; }
+    .tipo-card .name { font-size: 16px; font-weight: 700; }
+    .tipo-card .desc { font-size: 12px; color: #888; margin-top: 4px; }
+    /* Camera */
+    .camera-box {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 3/4;
+      max-height: 400px;
+      border-radius: 16px;
+      overflow: hidden;
+      background: #111;
+      margin-bottom: 16px;
+    }
+    .camera-box video, .camera-box img {
+      width: 100%; height: 100%; object-fit: cover;
+    }
+    .face-guide {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 180px; height: 240px;
+      border: 3px dashed #C8E600;
+      border-radius: 50%;
+      opacity: 0.6;
+      pointer-events: none;
+    }
+    .face-guide-text {
+      position: absolute;
+      bottom: 16px; left: 0; right: 0;
+      text-align: center;
+      font-size: 13px;
+      color: #C8E600;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+    }
+    canvas { display: none; }
+    /* Loading */
+    .loading-box { text-align: center; padding: 60px 20px; }
+    .spinner {
+      width: 48px; height: 48px;
+      border: 4px solid #333;
+      border-top-color: #C8E600;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 24px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-step { color: #888; font-size: 14px; margin-top: 8px; }
+    /* Result */
+    .result-box { text-align: center; padding: 40px 20px; }
+    .result-icon { font-size: 64px; margin-bottom: 16px; }
+    .result-title { font-size: 24px; font-weight: 700; margin-bottom: 12px; }
+    .result-msg { color: #999; font-size: 14px; line-height: 1.6; margin-bottom: 28px; }
+    .success-icon { color: #C8E600; }
+    .error-icon { color: #ff4444; }
+    .info-card {
+      background: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 12px;
+      padding: 16px;
+      margin: 20px 0;
+      text-align: left;
+    }
+    .info-card p { font-size: 13px; color: #aaa; margin-bottom: 6px; }
+    .info-card strong { color: #fff; }
+    .error-detail { font-size: 12px; color: #ff8888; background: #1a0000; padding: 12px; border-radius: 8px; margin: 12px 0; word-break: break-all; }
+    .already-linked { text-align: center; padding: 40px 20px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>TRIBOS ACADEMIA</h1>
+    <p>Vincular Acesso Wellhub / TotalPass</p>
+  </div>
+
+  <div class="steps-bar" id="stepsBar">
+    <div class="dot" data-step="1"></div>
+    <div class="dot" data-step="2"></div>
+    <div class="dot" data-step="3"></div>
+    <div class="dot" data-step="4"></div>
+    <div class="dot" data-step="5"></div>
+  </div>
+
+  <div class="container">
+    <!-- STEP 1: Tipo -->
+    <div class="step active" id="step-tipo">
+      <h2>Como voce acessa?</h2>
+      <p class="subtitle">Selecione seu plano de beneficio</p>
+      <div class="tipo-cards">
+        <div class="tipo-card" onclick="selectTipo('wellhub')" id="card-wellhub">
+          <div class="icon">🟢</div>
+          <div class="name">Wellhub</div>
+          <div class="desc">(antigo Gympass)</div>
+        </div>
+        <div class="tipo-card" onclick="selectTipo('totalpass')" id="card-totalpass">
+          <div class="icon">🔵</div>
+          <div class="name">TotalPass</div>
+          <div class="desc">&nbsp;</div>
+        </div>
+      </div>
+      <button class="btn btn-primary" id="btnTipo" disabled onclick="goStep('dados')">Continuar</button>
+    </div>
+
+    <!-- STEP 2: Dados -->
+    <div class="step" id="step-dados">
+      <h2>Seus dados</h2>
+      <p class="subtitle">Preencha para criar seu cadastro</p>
+      <div class="form-group">
+        <label>Nome completo *</label>
+        <input type="text" id="inputNome" placeholder="Seu nome completo" autocomplete="name" oninput="checkDados()">
+      </div>
+      <div class="form-group">
+        <label>CPF *</label>
+        <input type="tel" id="inputCpf" placeholder="000.000.000-00" maxlength="14" oninput="maskCpf(this); checkDados()">
+      </div>
+      <div class="row">
+        <div class="form-group">
+          <label>Nascimento *</label>
+          <input type="date" id="inputNasc" oninput="checkDados()">
+        </div>
+        <div class="form-group">
+          <label>Sexo *</label>
+          <select id="inputSexo" onchange="checkDados()">
+            <option value="">Selecione</option>
+            <option value="M">Masculino</option>
+            <option value="F">Feminino</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Celular *</label>
+        <input type="tel" id="inputTel" placeholder="(00) 00000-0000" maxlength="15" oninput="maskTel(this); checkDados()">
+      </div>
+      <div class="form-group">
+        <label>E-mail (opcional)</label>
+        <input type="email" id="inputEmail" placeholder="seu@email.com" autocomplete="email">
+      </div>
+      <button class="btn btn-primary" id="btnDados" disabled onclick="goStep('codigo')">Continuar</button>
+      <button class="btn btn-skip" onclick="goStep('tipo')">Voltar</button>
+    </div>
+
+    <!-- STEP 3: Codigo -->
+    <div class="step" id="step-codigo">
+      <h2>Codigo <span id="tipoLabel">Wellhub</span></h2>
+      <p class="subtitle" id="codigoSubtitle">Digite o codigo de autorizacao que voce recebeu no app do Wellhub</p>
+      <div class="form-group">
+        <label>Codigo de autorizacao *</label>
+        <input type="text" id="inputCodigo" placeholder="Cole o codigo aqui" oninput="checkCodigo()">
+      </div>
+      <button class="btn btn-primary" id="btnCodigo" disabled onclick="goStep('foto')">Continuar</button>
+      <button class="btn btn-skip" onclick="goStep('dados')">Voltar</button>
+    </div>
+
+    <!-- STEP 4: Foto -->
+    <div class="step" id="step-foto">
+      <h2>Foto para a catraca</h2>
+      <p class="subtitle">Tire uma selfie para o reconhecimento facial</p>
+      <div class="camera-box" id="cameraBox">
+        <video id="video" autoplay playsinline></video>
+        <img id="preview" style="display:none">
+        <div class="face-guide" id="faceGuide"></div>
+        <div class="face-guide-text" id="guideText">Posicione seu rosto no oval</div>
+      </div>
+      <canvas id="canvas"></canvas>
+      <div id="cameraBtns">
+        <button class="btn btn-primary" id="btnCapturar" onclick="capturar()">Tirar Foto</button>
+      </div>
+      <div id="previewBtns" style="display:none">
+        <button class="btn btn-primary" onclick="confirmarFoto()">Usar esta foto</button>
+        <button class="btn btn-secondary" onclick="refazerFoto()" style="margin-top:8px">Tirar outra</button>
+      </div>
+      <button class="btn btn-skip" onclick="pularFoto()">Pular (cadastrar foto depois)</button>
+      <button class="btn btn-skip" onclick="goStep('codigo')">Voltar</button>
+    </div>
+
+    <!-- STEP 5: Processamento -->
+    <div class="step" id="step-processando">
+      <div class="loading-box">
+        <div class="spinner"></div>
+        <h2>Processando...</h2>
+        <p class="loading-step" id="loadingStep">Verificando seus dados...</p>
+      </div>
+    </div>
+
+    <!-- STEP 6: Sucesso -->
+    <div class="step" id="step-sucesso">
+      <div class="result-box">
+        <div class="result-icon success-icon">&#10003;</div>
+        <div class="result-title">Tudo pronto!</div>
+        <p class="result-msg">Seu acesso foi vinculado com sucesso. Agora e so ir a Tribos Academia e passar na catraca!</p>
+        <div class="info-card">
+          <p><strong>Tribos Academia</strong></p>
+          <p>Rua T-28, 1443 - St. Bueno, Goiania/GO</p>
+          <p>Seg a Sex: 06h - 22h | Sab: 08h - 14h</p>
+        </div>
+        <a href="https://wa.me/5562920004819" class="btn btn-primary" style="text-decoration:none;text-align:center;margin-top:16px">Falar com a Tribos no WhatsApp</a>
+      </div>
+    </div>
+
+    <!-- STEP 7: Erro -->
+    <div class="step" id="step-erro">
+      <div class="result-box">
+        <div class="result-icon error-icon">&#10007;</div>
+        <div class="result-title">Ops, algo deu errado</div>
+        <p class="result-msg" id="erroMsg">Nao foi possivel completar o cadastro.</p>
+        <div class="error-detail" id="erroDetail" style="display:none"></div>
+        <button class="btn btn-primary" onclick="tentarNovamente()">Tentar Novamente</button>
+        <a href="https://wa.me/5562920004819" class="btn btn-skip" style="text-decoration:none;text-align:center;margin-top:8px">Pedir ajuda no WhatsApp</a>
+      </div>
+    </div>
+
+    <!-- STEP: Ja vinculado -->
+    <div class="step" id="step-javinculado">
+      <div class="result-box">
+        <div class="result-icon success-icon">&#10003;</div>
+        <div class="result-title">Voce ja esta cadastrado!</div>
+        <p class="result-msg" id="jaVinculadoMsg">Seu CPF ja esta no sistema. E so ir a Tribos Academia e passar na catraca!</p>
+        <div class="info-card">
+          <p><strong>Tribos Academia</strong></p>
+          <p>Rua T-28, 1443 - St. Bueno, Goiania/GO</p>
+          <p>Seg a Sex: 06h - 22h | Sab: 08h - 14h</p>
+        </div>
+        <a href="https://wa.me/5562920004819" class="btn btn-primary" style="text-decoration:none;text-align:center;margin-top:16px">Falar com a Tribos</a>
+      </div>
+    </div>
+  </div>
+
+<script>
+let tipoSelecionado = '';
+let fotoBase64 = null;
+let clienteData = null;
+let stream = null;
+
+// Check URL params
+const params = new URLSearchParams(window.location.search);
+if (params.get('tipo')) {
+  const t = params.get('tipo').toLowerCase();
+  if (t === 'wellhub' || t === 'gympass') selectTipo('wellhub');
+  else if (t === 'totalpass') selectTipo('totalpass');
+}
+
+function selectTipo(tipo) {
+  tipoSelecionado = tipo;
+  document.querySelectorAll('.tipo-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('card-' + tipo).classList.add('selected');
+  document.getElementById('btnTipo').disabled = false;
+}
+
+function goStep(name) {
+  document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+  document.getElementById('step-' + name).classList.add('active');
+
+  const stepMap = { tipo: 1, dados: 2, codigo: 3, foto: 4, processando: 5, sucesso: 5, erro: 5, javinculado: 5 };
+  const current = stepMap[name] || 1;
+  document.querySelectorAll('.steps-bar .dot').forEach((d, i) => {
+    d.className = 'dot';
+    if (i + 1 < current) d.classList.add('done');
+    else if (i + 1 === current) d.classList.add('active');
+  });
+
+  if (name === 'codigo') {
+    const label = tipoSelecionado === 'wellhub' ? 'Wellhub' : 'TotalPass';
+    document.getElementById('tipoLabel').textContent = label;
+    document.getElementById('codigoSubtitle').textContent =
+      tipoSelecionado === 'wellhub'
+        ? 'Digite o codigo de autorizacao que voce recebeu no app do Wellhub'
+        : 'Digite o codigo de autorizacao do TotalPass';
+  }
+
+  if (name === 'foto') initCamera();
+  if (name !== 'foto') stopCamera();
+}
+
+// Masks
+function maskCpf(el) {
+  let v = el.value.replace(/\D/g, '').slice(0, 11);
+  if (v.length > 9) v = v.slice(0,3)+'.'+v.slice(3,6)+'.'+v.slice(6,9)+'-'+v.slice(9);
+  else if (v.length > 6) v = v.slice(0,3)+'.'+v.slice(3,6)+'.'+v.slice(6);
+  else if (v.length > 3) v = v.slice(0,3)+'.'+v.slice(3);
+  el.value = v;
+}
+
+function maskTel(el) {
+  let v = el.value.replace(/\D/g, '').slice(0, 11);
+  if (v.length > 6) v = '('+v.slice(0,2)+') '+v.slice(2,7)+'-'+v.slice(7);
+  else if (v.length > 2) v = '('+v.slice(0,2)+') '+v.slice(2);
+  el.value = v;
+}
+
+function validarCpf(cpf) {
+  cpf = cpf.replace(/\D/g, '');
+  if (cpf.length !== 11 || /^(\d)\1+$/.test(cpf)) return false;
+  let soma = 0;
+  for (let i = 0; i < 9; i++) soma += parseInt(cpf[i]) * (10 - i);
+  let d1 = 11 - (soma % 11); if (d1 >= 10) d1 = 0;
+  if (parseInt(cpf[9]) !== d1) return false;
+  soma = 0;
+  for (let i = 0; i < 10; i++) soma += parseInt(cpf[i]) * (11 - i);
+  let d2 = 11 - (soma % 11); if (d2 >= 10) d2 = 0;
+  return parseInt(cpf[10]) === d2;
+}
+
+function checkDados() {
+  const nome = document.getElementById('inputNome').value.trim();
+  const cpf = document.getElementById('inputCpf').value.replace(/\D/g, '');
+  const nasc = document.getElementById('inputNasc').value;
+  const sexo = document.getElementById('inputSexo').value;
+  const tel = document.getElementById('inputTel').value.replace(/\D/g, '');
+  const ok = nome.split(' ').length >= 2 && nome.length >= 3
+    && cpf.length === 11 && validarCpf(cpf)
+    && nasc && sexo && tel.length >= 10;
+  document.getElementById('btnDados').disabled = !ok;
+}
+
+function checkCodigo() {
+  const v = document.getElementById('inputCodigo').value.trim();
+  document.getElementById('btnCodigo').disabled = v.length < 3;
+}
+
+// Camera
+async function initCamera() {
+  const video = document.getElementById('video');
+  const preview = document.getElementById('preview');
+  video.style.display = 'block';
+  preview.style.display = 'none';
+  document.getElementById('cameraBtns').style.display = 'block';
+  document.getElementById('previewBtns').style.display = 'none';
+  document.getElementById('faceGuide').style.display = 'block';
+  document.getElementById('guideText').style.display = 'block';
+
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: { ideal: 720 }, height: { ideal: 960 } }
+    });
+    video.srcObject = stream;
+  } catch (e) {
+    document.getElementById('cameraBox').innerHTML =
+      '<div style="display:flex;align-items:center;justify-content:center;height:100%;padding:20px;text-align:center;color:#888">' +
+      '<p>Camera nao disponivel.<br>Voce pode cadastrar a foto depois na academia.</p></div>';
+    document.getElementById('cameraBtns').style.display = 'none';
+  }
+}
+
+function stopCamera() {
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+}
+
+function capturar() {
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('canvas');
+  const preview = document.getElementById('preview');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  fotoBase64 = canvas.toDataURL('image/jpeg', 0.85);
+  preview.src = fotoBase64;
+  video.style.display = 'none';
+  preview.style.display = 'block';
+  document.getElementById('faceGuide').style.display = 'none';
+  document.getElementById('guideText').style.display = 'none';
+  document.getElementById('cameraBtns').style.display = 'none';
+  document.getElementById('previewBtns').style.display = 'block';
+  stopCamera();
+}
+
+function refazerFoto() {
+  fotoBase64 = null;
+  initCamera();
+}
+
+function confirmarFoto() {
+  stopCamera();
+  processar();
+}
+
+function pularFoto() {
+  fotoBase64 = null;
+  stopCamera();
+  processar();
+}
+
+// Processing
+async function processar() {
+  goStep('processando');
+
+  const cpf = document.getElementById('inputCpf').value.replace(/\D/g, '');
+  const nome = document.getElementById('inputNome').value.trim().toUpperCase();
+  const nasc = document.getElementById('inputNasc').value;
+  const sexo = document.getElementById('inputSexo').value;
+  const tel = document.getElementById('inputTel').value.replace(/\D/g, '');
+  const email = document.getElementById('inputEmail').value.trim();
+  const codigo = document.getElementById('inputCodigo').value.trim();
+
+  // Format birth date dd/MM/yyyy
+  const [y, m, d] = nasc.split('-');
+  const nascFormatado = `${d}/${m}/${y}`;
+
+  try {
+    // Step 1: Check CPF
+    setLoading('Verificando CPF...');
+    const checkResp = await fetch('/api/check-cpf?cpf=' + cpf);
+    const checkData = await checkResp.json();
+
+    let matricula, pessoa;
+
+    if (checkData.existe) {
+      matricula = checkData.matricula;
+      pessoa = checkData.pessoa;
+      clienteData = checkData;
+    } else {
+      // Step 2: Register
+      setLoading('Cadastrando seus dados...');
+      const regResp = await fetch('/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nome, cpf, dataNascimento: nascFormatado, sexo, telefone: tel, email })
+      });
+      const regData = await regResp.json();
+      if (regData.erro) throw new Error(regData.erro);
+
+      // Try to get matricula from response
+      matricula = regData.matricula || regData.content?.matricula || regData.return;
+      pessoa = regData.pessoa || regData.content?.pessoa || regData.codigoPessoa;
+
+      // If registration returns just text/id, re-check CPF to get full data
+      if (!matricula || !pessoa) {
+        const recheck = await fetch('/api/check-cpf?cpf=' + cpf);
+        const recheckData = await recheck.json();
+        if (recheckData.existe) {
+          matricula = recheckData.matricula;
+          pessoa = recheckData.pessoa;
+        } else {
+          throw new Error('Cadastro criado mas nao foi possivel recuperar a matricula');
+        }
+      }
+    }
+
+    // Step 3: Link aggregator
+    setLoading('Vinculando ' + (tipoSelecionado === 'wellhub' ? 'Wellhub' : 'TotalPass') + '...');
+
+    if (tipoSelecionado === 'wellhub') {
+      const linkResp = await fetch('/api/link-wellhub', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ matricula: parseInt(matricula), codigo })
+      });
+      const linkData = await linkResp.json();
+      if (linkData.erro) throw new Error(linkData.erro);
+    } else {
+      const linkResp = await fetch('/api/link-totalpass', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ matricula: parseInt(matricula), pessoa: parseInt(pessoa), codigo })
+      });
+      const linkData = await linkResp.json();
+      if (linkData.erro) throw new Error(linkData.erro);
+    }
+
+    // Step 4: Upload photo
+    if (fotoBase64 && pessoa) {
+      setLoading('Enviando foto para reconhecimento facial...');
+      try {
+        await fetch('/api/upload-photo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pessoa: parseInt(pessoa), foto: fotoBase64 })
+        });
+      } catch (e) {
+        // Photo is non-blocking
+      }
+    }
+
+    goStep('sucesso');
+
+  } catch (err) {
+    showErro(err.message);
+  }
+}
+
+function setLoading(msg) {
+  document.getElementById('loadingStep').textContent = msg;
+}
+
+function showErro(msg, detail) {
+  goStep('erro');
+  document.getElementById('erroMsg').textContent = msg || 'Nao foi possivel completar o cadastro.';
+  const det = document.getElementById('erroDetail');
+  if (detail) { det.textContent = detail; det.style.display = 'block'; }
+  else det.style.display = 'none';
+}
+
+function tentarNovamente() {
+  goStep('tipo');
+}
+</script>
+</body>
+</html>
