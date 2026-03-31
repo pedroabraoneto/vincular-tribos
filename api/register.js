@@ -15,24 +15,39 @@ export default async function handler(req, res) {
   const BASE = 'https://apigw.pactosolucoes.com.br';
 
   try {
-    const cpfLimpo = cpf.replace(/\D/g, '');
     const telLimpo = telefone.replace(/\D/g, '');
 
-    const params = new URLSearchParams({
+    // Convert dataNascimento (DD/MM/YYYY) to timestamp
+    let tsNascimento;
+    if (typeof dataNascimento === 'number') {
+      tsNascimento = dataNascimento;
+    } else {
+      const parts = dataNascimento.split('/');
+      if (parts.length === 3) {
+        const d = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+        tsNascimento = d.getTime();
+      } else {
+        tsNascimento = new Date(dataNascimento).getTime();
+      }
+    }
+
+    // Use /cliente/simplificado endpoint (JSON body, fewer required fields)
+    const body = {
       nome: nome.toUpperCase(),
-      cpf: cpfLimpo,
-      dataNascimento: dataNascimento,
+      celular: telLimpo,
+      dataNascimento: tsNascimento,
       sexo: sexo,
-      telCelular: telLimpo,
-      empresa: EMPRESA_ID
-    });
-    params.append('email', email || '');
+      email: email || ''
+    };
 
-    const url = `${BASE}/cliente/cadastrarCliente?${params.toString()}`;
-
-    const resp = await fetch(url, {
+    const resp = await fetch(`${BASE}/cliente/simplificado`, {
       method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + API_KEY, 'empresaId': EMPRESA_ID }
+      headers: {
+        'Authorization': 'Bearer ' + API_KEY,
+        'empresaId': EMPRESA_ID,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
     });
 
     let data;
@@ -43,6 +58,17 @@ export default async function handler(req, res) {
     }
 
     if (data.erro) return res.status(500).json({ erro: data.erro });
+
+    // Extract matricula from simplified response
+    if (data.return) {
+      return res.status(200).json({
+        matricula: data.return.matriculaZW,
+        pessoa: data.return.codigoPessoa,
+        cliente: data.return.codigoCliente,
+        nome: data.return.nome,
+        situacao: data.return.situacaoAluno
+      });
+    }
 
     return res.status(200).json(data);
   } catch (err) {
