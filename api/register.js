@@ -15,59 +15,62 @@ export default async function handler(req, res) {
   const BASE = 'https://apigw.pactosolucoes.com.br';
 
   try {
+    const cpfLimpo = cpf.replace(/\D/g, '');
     const telLimpo = telefone.replace(/\D/g, '');
 
-    // Convert dataNascimento (DD/MM/YYYY) to timestamp
-    let tsNascimento;
-    if (typeof dataNascimento === 'number') {
-      tsNascimento = dataNascimento;
-    } else {
-      const parts = dataNascimento.split('/');
-      if (parts.length === 3) {
-        const d = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
-        tsNascimento = d.getTime();
-      } else {
-        tsNascimento = new Date(dataNascimento).getTime();
-      }
-    }
-
-    // Use /cliente/simplificado endpoint (JSON body, fewer required fields)
-    const body = {
+    const params = new URLSearchParams({
       nome: nome.toUpperCase(),
-      celular: telLimpo,
-      dataNascimento: tsNascimento,
+      cpf: cpfLimpo,
+      dataNascimento: dataNascimento,
       sexo: sexo,
-      email: email || ''
-    };
+      telCelular: telLimpo,
+      empresa: EMPRESA_ID,
+      email: email || 'nao@informado.com',
+      endereco: '.',
+      cidade: 'GOIANIA',
+      bairro: '.',
+      cep: '74150020',
+      uf: 'GO',
+      numero: '0',
+      senha: cpfLimpo.substring(0, 6)
+    });
 
-    const resp = await fetch(`${BASE}/cliente/simplificado`, {
+    const url = `${BASE}/cliente/cadastrarCliente?${params.toString()}`;
+
+    const resp = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Authorization': 'Bearer ' + API_KEY,
-        'empresaId': EMPRESA_ID,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(body)
+      headers: { 'Authorization': 'Bearer ' + API_KEY, 'empresaId': EMPRESA_ID }
     });
 
     let data;
     const text = await resp.text();
     try { data = JSON.parse(text); } catch (e) {
       if (resp.ok) data = { resultado: text };
-      else return res.status(500).json({ erro: 'Erro API: ' + text.substring(0, 200) });
+      else return res.status(500).json({ erro: 'Erro API: ' + text.substring(0, 300) });
     }
 
     if (data.erro) return res.status(500).json({ erro: data.erro });
 
-    // Extract matricula from simplified response
-    if (data.return) {
-      return res.status(200).json({
-        matricula: data.return.matriculaZW,
-        pessoa: data.return.codigoPessoa,
-        cliente: data.return.codigoCliente,
-        nome: data.return.nome,
-        situacao: data.return.situacaoAluno
+    // cadastrarCliente returns matricula as plain text number
+    if (typeof data.resultado === 'string' && /^\d+$/.test(data.resultado.trim())) {
+      const matricula = parseInt(data.resultado.trim());
+      // Re-check to get full data
+      const filters = encodeURIComponent(JSON.stringify({ documento: cpfLimpo, empresa: parseInt(EMPRESA_ID) }));
+      const checkResp = await fetch(`${BASE}/cadastro-cliente/consultar?filters=${filters}&page=0&size=1`, {
+        headers: { 'Authorization': 'Bearer ' + API_KEY, 'empresaId': EMPRESA_ID }
       });
+      const checkData = await checkResp.json();
+      if (checkData.content && checkData.content.length > 0) {
+        const c = checkData.content[0];
+        return res.status(200).json({
+          matricula: c.matricula,
+          pessoa: c.pessoa,
+          cliente: c.cliente,
+          nome: c.nome,
+          situacao: c.situacao
+        });
+      }
+      return res.status(200).json({ matricula });
     }
 
     return res.status(200).json(data);
