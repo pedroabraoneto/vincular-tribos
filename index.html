@@ -307,7 +307,8 @@ function checkDados() {
   const nasc = document.getElementById('inputNasc').value.replace(/\D/g, '');
   const sexo = document.getElementById('inputSexo').value;
   const tel = document.getElementById('inputTel').value.replace(/\D/g, '');
-  document.getElementById('btnDados').disabled = !(nome.split(' ').length >= 2 && nome.length >= 3 && nasc.length === 8 && sexo && tel.length >= 10);
+  const telInvalido = tel.includes('99999999') || tel.includes('00000000');
+  document.getElementById('btnDados').disabled = !(nome.split(' ').length >= 2 && nome.length >= 3 && nasc.length === 8 && sexo && tel.length >= 10 && !telInvalido);
 }
 
 function checkCodigo() { document.getElementById('btnCodigo').disabled = document.getElementById('inputCodigo').value.trim().length < 3; }
@@ -348,6 +349,7 @@ async function processar() {
 
   if (!fotoBase64) { showErro('Foto obrigatoria! Volte e tire uma selfie.'); return; }
   if (!tel || tel.length < 10) { showErro('Telefone obrigatorio!'); return; }
+  if (tel.includes('99999999') || tel.includes('00000000')) { showErro('Telefone invalido! Use um numero real.'); return; }
   if (!nascRaw || nascRaw.replace(/\D/g, '').length < 8) { showErro('Data de nascimento obrigatoria!'); return; }
 
   try {

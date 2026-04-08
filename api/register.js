@@ -15,17 +15,26 @@ export default async function handler(req, res) {
   const BASE = 'https://apigw.pactosolucoes.com.br';
   const headers = { 'Authorization': 'Bearer ' + API_KEY, 'empresaId': EMPRESA_ID };
 
-  try {
-    const cpfLimpo = cpf.replace(/\D/g, '');
-    const telLimpo = telefone.replace(/\D/g, '');
+  const cpfLimpo = cpf.replace(/\D/g, '');
+  const telLimpo = telefone.replace(/\D/g, '');
 
-    // STEP 1: Buscar se CPF ja existe no Pacto
+  // VALIDACAO ANTI-PLACEHOLDER
+  if (telLimpo.includes('99999999') || telLimpo.includes('00000000') || telLimpo.length < 10) {
+    return res.status(400).json({ erro: 'Telefone invalido. Use um numero real com DDD.' });
+  }
+
+  if (!dataNascimento || dataNascimento.replace(/\D/g, '').length < 8) {
+    return res.status(400).json({ erro: 'Data de nascimento obrigatoria no formato DD/MM/AAAA' });
+  }
+
+  try {
+    // STEP 1: Buscar se CPF ja existe
     const filters = encodeURIComponent(JSON.stringify({ documento: cpfLimpo, empresa: parseInt(EMPRESA_ID) }));
     const checkResp = await fetch(`${BASE}/cadastro-cliente/consultar?filters=${filters}&page=0&size=1`, { headers });
     const checkData = await checkResp.json();
 
     if (checkData.content && checkData.content.length > 0) {
-      // CPF JA EXISTE — retornar dados existentes (nao duplicar!)
+      // CPF JA EXISTE — retornar dados existentes (NUNCA duplicar)
       const c = checkData.content[0];
       return res.status(200).json({
         matricula: c.matricula,
@@ -55,8 +64,9 @@ export default async function handler(req, res) {
       senha: cpfLimpo.substring(0, 6)
     });
 
-    const url = `${BASE}/cliente/cadastrarCliente?${params.toString()}`;
-    const resp = await fetch(url, { method: 'POST', headers });
+    const resp = await fetch(`${BASE}/cliente/cadastrarCliente?${params.toString()}`, {
+      method: 'POST', headers
+    });
 
     let data;
     const text = await resp.text();
@@ -66,38 +76,29 @@ export default async function handler(req, res) {
     }
 
     if (data.erro) {
-      // Se erro é "CPF ja cadastrado", buscar e retornar dados
       if (data.erro.includes('CPF') && data.erro.includes('cadastrado')) {
         const recheck = await fetch(`${BASE}/cadastro-cliente/consultar?filters=${filters}&page=0&size=1`, { headers });
         const recheckData = await recheck.json();
         if (recheckData.content && recheckData.content.length > 0) {
           const c = recheckData.content[0];
           return res.status(200).json({
-            matricula: c.matricula,
-            pessoa: c.pessoa,
-            cliente: c.cliente,
-            nome: c.nome,
-            situacao: c.situacao,
-            jaExistia: true
+            matricula: c.matricula, pessoa: c.pessoa, cliente: c.cliente,
+            nome: c.nome, situacao: c.situacao, jaExistia: true
           });
         }
       }
       return res.status(500).json({ erro: data.erro });
     }
 
-    // cadastrarCliente retorna matricula como texto
+    // Re-check para pegar dados completos
     if (typeof data.resultado === 'string' && /^\d+$/.test(data.resultado.trim())) {
-      // Re-check para pegar dados completos
       const recheck2 = await fetch(`${BASE}/cadastro-cliente/consultar?filters=${filters}&page=0&size=1`, { headers });
       const recheckData2 = await recheck2.json();
       if (recheckData2.content && recheckData2.content.length > 0) {
         const c = recheckData2.content[0];
         return res.status(200).json({
-          matricula: c.matricula,
-          pessoa: c.pessoa,
-          cliente: c.cliente,
-          nome: c.nome,
-          situacao: c.situacao
+          matricula: c.matricula, pessoa: c.pessoa, cliente: c.cliente,
+          nome: c.nome, situacao: c.situacao
         });
       }
       return res.status(200).json({ matricula: parseInt(data.resultado.trim()) });

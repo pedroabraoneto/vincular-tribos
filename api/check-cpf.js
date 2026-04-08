@@ -13,30 +13,47 @@ export default async function handler(req, res) {
   const API_KEY = process.env.PACTO_API_KEY;
   const EMPRESA_ID = process.env.PACTO_EMPRESA_ID || '1';
   const BASE = 'https://apigw.pactosolucoes.com.br';
+  const headers = { 'Authorization': 'Bearer ' + API_KEY, 'empresaId': EMPRESA_ID };
 
   try {
-    const filters = encodeURIComponent(JSON.stringify({ documento: cpfLimpo, empresa: parseInt(EMPRESA_ID) }));
-    const url = `${BASE}/cadastro-cliente/consultar?filters=${filters}&page=0&size=1`;
+    // Step 1: Buscar via /clientes/simplificado (retorna matricula e nome)
+    const respSimp = await fetch(`${BASE}/clientes/simplificado?cpf=${cpfLimpo}`, { headers });
+    const dataSimp = await respSimp.json();
+    const simpContent = dataSimp.content || [];
 
-    const resp = await fetch(url, {
-      headers: { 'Authorization': 'Bearer ' + API_KEY, 'empresaId': EMPRESA_ID }
-    });
-
-    const data = await resp.json();
-
-    if (!data.content || data.content.length === 0) {
+    if (simpContent.length === 0) {
       return res.status(200).json({ existe: false });
     }
 
-    const c = data.content[0];
+    const matricula = String(simpContent[0].codigoMatricula).padStart(6, '0');
+
+    // Step 2: Buscar dados completos via /cadastro-cliente/consultar
+    const filters = encodeURIComponent(JSON.stringify({ documento: cpfLimpo, empresa: parseInt(EMPRESA_ID) }));
+    const respFull = await fetch(`${BASE}/cadastro-cliente/consultar?filters=${filters}&page=0&size=1`, { headers });
+    const dataFull = await respFull.json();
+
+    if (dataFull.content && dataFull.content.length > 0) {
+      const c = dataFull.content[0];
+      return res.status(200).json({
+        existe: true,
+        pessoa: c.pessoa,
+        cliente: c.cliente,
+        nome: c.nome,
+        matricula: c.matricula || matricula,
+        situacao: c.situacao,
+        urlFoto: c.urlFoto || null,
+        telefone: c.telefone || '',
+        email: c.email || '',
+        cpf: c.cpf || ''
+      });
+    }
+
+    // Fallback: retornar dados do simplificado
     return res.status(200).json({
       existe: true,
-      pessoa: c.pessoa,
-      cliente: c.cliente,
-      nome: c.nome,
-      matricula: c.matricula,
-      situacao: c.situacao,
-      urlFoto: c.urlFoto || null
+      matricula: matricula,
+      nome: simpContent[0].nome,
+      situacao: simpContent[0].situacaoDescricao === 'Ativo' ? 'AT' : 'VI'
     });
   } catch (err) {
     return res.status(500).json({ erro: 'Erro ao consultar: ' + err.message });
