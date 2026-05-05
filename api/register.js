@@ -36,17 +36,42 @@ export default async function handler(req, res) {
     if (checkData.content && checkData.content.length > 0) {
       // CPF JA EXISTE — retornar dados existentes (NUNCA duplicar)
       const c = checkData.content[0];
+      console.log(`[register] Match por CPF: mat=${c.matricula}`);
       return res.status(200).json({
         matricula: c.matricula,
         pessoa: c.pessoa,
         cliente: c.cliente,
         nome: c.nome,
         situacao: c.situacao,
-        jaExistia: true
+        jaExistia: true,
+        motivoMatch: 'cpf'
       });
     }
 
-    // STEP 2: CPF nao existe — cadastrar novo
+    // STEP 1.5: se email fornecido, buscar por email TAMBEM (fix bug Jamille 017356)
+    if (email && email.includes('@')) {
+      const emailNorm = email.toLowerCase().trim();
+      const filtersEmail = encodeURIComponent(JSON.stringify({ email: emailNorm, empresa: parseInt(EMPRESA_ID) }));
+      const respEmail = await fetch(`${BASE}/cadastro-cliente/consultar?filters=${filtersEmail}&page=0&size=1`, { headers });
+      const dataEmail = await respEmail.json();
+      if (dataEmail.content && dataEmail.content.length > 0) {
+        const c = dataEmail.content[0];
+        console.log(`[register] Match por email: mat=${c.matricula} email=${emailNorm}`);
+        return res.status(200).json({
+          matricula: c.matricula,
+          pessoa: c.pessoa,
+          cliente: c.cliente,
+          nome: c.nome,
+          situacao: c.situacao,
+          jaExistia: true,
+          motivoMatch: 'email',
+          avisoUI: 'Encontramos seu cadastro pelo email! Continuando com seus dados...'
+        });
+      }
+    }
+
+    // STEP 2: CPF e email nao existem — cadastrar novo
+    console.log(`[register] Cadastrando novo cliente: cpf=${cpfLimpo}, email=${email || '(vazio)'}`);
     const params = new URLSearchParams({
       nome: nome.toUpperCase(),
       cpf: cpfLimpo,
@@ -54,7 +79,7 @@ export default async function handler(req, res) {
       sexo: sexo,
       telCelular: telLimpo,
       empresa: EMPRESA_ID,
-      email: email || 'nao@informado.com',
+      email: email || `${cpfLimpo}@semmail.tribos.com.br`,
       endereco: '.',
       cidade: 'GOIANIA',
       bairro: '.',
@@ -76,6 +101,7 @@ export default async function handler(req, res) {
     }
 
     if (data.erro) {
+      // Fallback CPF (ja existia)
       if (data.erro.includes('CPF') && data.erro.includes('cadastrado')) {
         const recheck = await fetch(`${BASE}/cadastro-cliente/consultar?filters=${filters}&page=0&size=1`, { headers });
         const recheckData = await recheck.json();
@@ -83,8 +109,29 @@ export default async function handler(req, res) {
           const c = recheckData.content[0];
           return res.status(200).json({
             matricula: c.matricula, pessoa: c.pessoa, cliente: c.cliente,
-            nome: c.nome, situacao: c.situacao, jaExistia: true
+            nome: c.nome, situacao: c.situacao, jaExistia: true,
+            motivoMatch: 'cpf_fallback'
           });
+        }
+      }
+      // NOVO: Fallback EMAIL (defesa em profundidade caso STEP 1.5 nao tenha pego — race condition / cache)
+      const erroLower = data.erro.toLowerCase();
+      if ((erroLower.includes('email') || erroLower.includes('e-mail')) && erroLower.includes('cadastrad')) {
+        if (email && email.includes('@')) {
+          const emailNorm = email.toLowerCase().trim();
+          const filtersE = encodeURIComponent(JSON.stringify({ email: emailNorm, empresa: parseInt(EMPRESA_ID) }));
+          const recheckE = await fetch(`${BASE}/cadastro-cliente/consultar?filters=${filtersE}&page=0&size=1`, { headers });
+          const recheckDataE = await recheckE.json();
+          if (recheckDataE.content && recheckDataE.content.length > 0) {
+            const c = recheckDataE.content[0];
+            console.log(`[register] Match por email no fallback: mat=${c.matricula} email=${emailNorm}`);
+            return res.status(200).json({
+              matricula: c.matricula, pessoa: c.pessoa, cliente: c.cliente,
+              nome: c.nome, situacao: c.situacao, jaExistia: true,
+              motivoMatch: 'email_fallback',
+              avisoUI: 'Encontramos seu cadastro pelo email! Continuando com seus dados...'
+            });
+          }
         }
       }
       return res.status(500).json({ erro: data.erro });
